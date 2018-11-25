@@ -18,6 +18,7 @@ int main() {
 #include <rwlibs/pathplanners/rrt/RRTPlanner.hpp>
 #include <rwlibs/pathplanners/rrt/RRTQToQPlanner.hpp>
 #include <rwlibs/proximitystrategies/ProximityStrategyFactory.hpp>
+#include <rw/models/DeviceJacobianCalculator.hpp>
 #include <rw/kinematics.hpp>
 #include <fstream>
 #include <math.h>
@@ -74,8 +75,20 @@ int main() {
             return 0;
     }
     State state = wc->getDefaultState();
+    Frame *baseFrame = device->getBase();
+    Frame *toolFrame = device->getEnd();
+    vector<Frame*> frameVector;
+    frameVector.push_back(toolFrame);
 
-
+    // get device name
+    std::string devicename = device->getName();
+    // the degrees of freedom of this device
+    int dof = device->getDOF();
+    // set the configuration of the device to zero
+    device->setQ( Q::zero(dof) , state );
+    
+    
+    
 
     return 0;
 }

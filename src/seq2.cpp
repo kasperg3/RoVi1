@@ -33,6 +33,18 @@ bool containedIn( Vec2f coordinate ,vector<Vec2f> vec){
     return false;
 }
 
+bool containedInThresh( Vec2i coordinate ,vector<Vec2i> vec, int thresh){
+    for(size_t i = 0 ; i < vec.size(); i++){
+        if(vec[i][0] < coordinate[0] + thresh  && vec[i][0] > coordinate[0] - thresh){
+            if(vec[i][1] < coordinate[1] + thresh  && vec[i][1] > coordinate[1] - thresh){
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+
 vector<Vec2f> hough2Cart(Vec2f hough){
     vector<Vec2f> outputVec;
     float rho = hough[0];
@@ -67,9 +79,9 @@ void drawHoughLines(vector<Vec2f> houghEdges, Mat houghImg){
     }
 }
 
-void drawCircles(vector<Vec2i> coordinateVec, Mat img){
+void drawCircles(vector<Vec2i> coordinateVec, Mat img, Scalar color){
     for(size_t i = 0; i < coordinateVec.size(); i++)
-        circle(img,Point(coordinateVec[i][1],coordinateVec[i][0]),5,Scalar(0,0,0),2);
+        circle(img,Point(coordinateVec[i][1],coordinateVec[i][0]),5,color,2);
 }
 
 bool intersection(Vec2f line1,Vec2f line2, Vec2i &dstVector){
@@ -118,7 +130,7 @@ bool intersection(Vec2f line1,Vec2f line2, Vec2i &dstVector){
 
 int main(int argc, char** argv) {
     Mat img1 = cv::imread("/home/kasper/RWworkspace/markerImages/sequence_2a/marker_thinline_01.png", CV_LOAD_IMAGE_GRAYSCALE);
-    Mat img = cv::imread("/home/kasper/RWworkspace/markerImages/sequence_2a/marker_thinline_01.png", CV_LOAD_IMAGE_GRAYSCALE);
+    Mat img = cv::imread("/home/kasper/RWworkspace/markerImages/sequence_2a/marker_thinline_01.png");
     showImage("imageTest", img1);
     //Average filter
     Mat kernel = Mat::ones(5,5,CV_8U);
@@ -169,12 +181,11 @@ int main(int argc, char** argv) {
     vector<Vec2i> intersectionVec;
     Vec2i coordinateVec;
     int intersectThresh = 8;
-    int voteThresh = 3;
+    int voteThresh = 4;
     vector<int> voteVector;
     vector<Vec2i> neighbourCoor;
-    //---------------------------------------TBD-------------------------------------//
 
-    //creating a intersection vector
+    //creating a intersection vector and ignores intersections which is not inside the image
     for(size_t i = 0; i < uniquePerpEdges.size(); i++){
         for(size_t j = i; j < uniquePerpEdges.size(); j++){
             if(intersection(uniquePerpEdges[i], uniquePerpEdges[j],coordinateVec)==true){
@@ -202,9 +213,18 @@ int main(int argc, char** argv) {
 
     //Extract the coordinates with most votes
     for(size_t i = 0; i < intersectionVec.size(); i++){
-        if(voteVector[i] > voteThresh){
+        if(voteVector[i] >= voteThresh){
             neighbourCoor.push_back(intersectionVec[i]);
         }
+    }
+
+    //remove duplicate intersections
+    vector<Vec2i> uniqueIntersections;
+    for(size_t i = 0; i < neighbourCoor.size(); i++){
+        if(!containedInThresh(neighbourCoor[i],uniqueIntersections,15)){ //threshold to where there must not be more than one point
+            uniqueIntersections.push_back(neighbourCoor[i]);
+        }
+
     }
 
     //---------------------------------------TBDEND----------------------------------//
@@ -215,10 +235,24 @@ int main(int argc, char** argv) {
     //Draw perpendicular lines extracted onto perpImg
     drawHoughLines(uniquePerpEdges,perpImg);
 
+    //Draw the coordinates from the intersections onto perpImg
+    drawCircles(neighbourCoor,perpImg,Scalar(0,0,0));
 
-    //Draw the coordinates from the intersections
-    drawCircles(neighbourCoor,perpImg);
+    //Draw all the unique intersections
+    drawCircles(uniqueIntersections,perpImg,Scalar(0,0,255));
 
+    double averageX = 0.0;
+    double averageY = 0.0;
+    //Draws the center of marker
+    for(size_t i = 0; i < uniqueIntersections.size(); i++){
+        averageX += uniqueIntersections[i][1]/uniqueIntersections.size();
+        averageY += uniqueIntersections[i][0]/uniqueIntersections.size();
+    }
+
+    circle(perpImg, Point(cvRound(averageX),cvRound(averageY)), 2, Scalar(0,0,255), 2);
+
+
+    //
     cout << "img size: " << houghImg.size() << endl ;
     cout << "Hough Edges: " << houghEdges.size() << endl;
     cout << "perpendicular Edges:"<< perpEdges.size() << endl;
@@ -226,6 +260,7 @@ int main(int argc, char** argv) {
     cout << "intersections: " << intersectionVec.size() << endl;
     cout << "voteVector Length: " << voteVector.size() << endl;
     cout << "neighbouring threshold intersections: " << neighbourCoor.size() << endl;
+
 
     imshow("houghEdges", houghImg);
     imshow("uniquePerpEdges", perpImg);

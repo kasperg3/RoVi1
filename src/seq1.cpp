@@ -5,6 +5,7 @@
 #include "opencv2/features2d.hpp"
 #include <cv.h>
 #include <math.h>
+#include <cmath>
 
 
 using namespace cv;
@@ -38,7 +39,7 @@ Mat getMask(Mat img, Vec3b hsvPixel, int hThreshold, int sThreshold, int vThresh
 
 
 int main(int argc, char** argv) {
-    Mat img1 = cv::imread("/home/kasper/qtworkspace/markerImages/sequence_1/marker_color_07.png", CV_LOAD_IMAGE_COLOR);
+    Mat img1 = cv::imread("/home/kasper/qtworkspace/markerImages/sequence_1_h/marker_color_hard_05.png", CV_LOAD_IMAGE_COLOR);
     showImage("imageTest", img1);
 
 
@@ -82,19 +83,41 @@ int main(int argc, char** argv) {
 
     Moments circleMoment;
     vector<Vec2i> coordinates;
+    vector<vector<Point>> contoursThresh;
+    //filter the contours based on compactness:
+    double perimiterThreshold = 200;
+
+    for(int i = 0; i < contours.size(); i++){
+        //Define the number of elements in contour as the perimiter
+        if(contours[i].size() > perimiterThreshold){
+            contoursThresh.push_back(contours[i]);
+        }
+        cout << "contour: " << i << "| Pixels in contour: " <<contours[i].size() <<  endl;
+    }
 
 
     //Find center of the contours
-    for(int i = 0; i < contours.size(); i++){
-        circleMoment = moments((contours[i]));
+
+    double averageX = 0;
+    double averageY = 0;
+    for(int i = 0; i < contoursThresh.size(); i++){
+        circleMoment = moments((contoursThresh[i]));
         comX = circleMoment.m10/circleMoment.m00;
         comY = circleMoment.m01/circleMoment.m00;
 
         coordinates.push_back(Vec2i(comX,comY));
 
-        drawContours(img1, contours,i, 255,2,8);
+        //calculates the center of the marker
+        averageX += comX/contoursThresh.size();
+        averageY += comY/contoursThresh.size();
+
+        //draws circles, center of circles
+        drawContours(img1, contoursThresh,i, 255,2,8);
         circle(img1, Point(comX,comY), 2, 0, 2);
     }
+
+    //Draws point in the middle of the marker
+    circle(img1, Point(cvRound(averageX),cvRound(averageY)), 2, Scalar(0,0,255), 2);
 
     imshow("drawing", img1);
 

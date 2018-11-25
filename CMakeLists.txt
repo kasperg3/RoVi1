@@ -35,7 +35,7 @@ endif()
 
 # Add the source files to build
 #SET(SrcFiles src/RoVi.cpp)
-SET(SrcFiles src/robotics.cpp)
+SET(SrcFiles src/seq2.cpp)
 
 # The shared library to build:
 ADD_EXECUTABLE(RoViMandatory2 ${SrcFiles})
