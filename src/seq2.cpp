@@ -66,7 +66,7 @@ void drawHoughLines(vector<Vec2f> houghEdges, Mat houghImg){
     float rho = houghEdges[i][0];
     float theta = houghEdges[i][1];
     double a = cos(theta), b = sin(theta);
-    double x0 = a*rho, y0 = b*rho;
+    double x0 = a*rho, y0 = b*rho;          //define
 
     //Define points of the line
     Point pt1(cvRound(x0 + 5000*(-b)),      //Extending the line from top to :Angle*5000pixels + offset
@@ -129,8 +129,8 @@ bool intersection(Vec2f line1,Vec2f line2, Vec2i &dstVector){
 }
 
 int main(int argc, char** argv) {
-    Mat img1 = cv::imread("/home/kasper/RWworkspace/markerImages/sequence_2a/marker_thinline_01.png", CV_LOAD_IMAGE_GRAYSCALE);
-    Mat img = cv::imread("/home/kasper/RWworkspace/markerImages/sequence_2a/marker_thinline_01.png");
+    Mat img1 = cv::imread("/home/kasper/RWworkspace/markerImages/sequence_2a/marker_thinline_07.png", CV_LOAD_IMAGE_GRAYSCALE);
+    Mat img = cv::imread("/home/kasper/RWworkspace/markerImages/sequence_2a/marker_thinline_07.png");
     showImage("imageTest", img1);
     //Average filter
     Mat kernel = Mat::ones(5,5,CV_8U);
