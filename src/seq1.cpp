@@ -19,6 +19,7 @@ void showImage(string name,Mat img, bool print=0, string path=""){
     cv::resizeWindow(name, 800,800);
     if(print == 1){
         path.append(name);
+        path.append(".png");
         imwrite(path, img);
     }
 
@@ -39,7 +40,7 @@ Mat getMask(Mat img, Vec3b hsvPixel, int hThreshold, int sThreshold, int vThresh
 
 
 int main(int argc, char** argv) {
-    Mat img1 = cv::imread("/home/kasper/qtworkspace/markerImages/sequence_1_h/marker_color_hard_05.png", CV_LOAD_IMAGE_COLOR);
+    Mat img1 = cv::imread("/home/kasper/qtworkspace/markerImages/sequence_1/marker_color_01.png", CV_LOAD_IMAGE_COLOR);
     showImage("imageTest", img1);
 
 
@@ -56,7 +57,7 @@ int main(int argc, char** argv) {
     Mat blue = getMask(hsvImg,bluePixel,25,40,20);   //BLUE
 
     bitwise_or(orange,blue,colorSeg);
-    imshow("gt mask", blue);
+    showImage("gt mask", blue);
 
 
     //morphoogical operations to enhance quality of GT
@@ -67,7 +68,7 @@ int main(int argc, char** argv) {
     morphologyEx(morph,morph, MORPH_OPEN,openKernel);
 
 
-    imshow("Morphological transform", morph);
+    showImage("Morphological transform", morph);
 
 
 
@@ -85,11 +86,12 @@ int main(int argc, char** argv) {
     vector<Vec2i> coordinates;
     vector<vector<Point>> contoursThresh;
     //filter the contours based on compactness:
-    double perimiterThreshold = 200;
+    double perimiterLowThreshold = 200;
+    double perimiterHighThreshold = 400;
 
     for(int i = 0; i < contours.size(); i++){
         //Define the number of elements in contour as the perimiter
-        if(contours[i].size() > perimiterThreshold){
+        if(contours[i].size() > perimiterLowThreshold && perimiterHighThreshold > contours[i].size()){
             contoursThresh.push_back(contours[i]);
         }
         cout << "contour: " << i << "| Pixels in contour: " <<contours[i].size() <<  endl;
@@ -119,7 +121,7 @@ int main(int argc, char** argv) {
     //Draws point in the middle of the marker
     circle(img1, Point(cvRound(averageX),cvRound(averageY)), 2, Scalar(0,0,255), 2);
 
-    imshow("drawing", img1);
+    showImage("drawing", img1);
 
 
     while (cv::waitKey() != 27); // (d½o nothing)

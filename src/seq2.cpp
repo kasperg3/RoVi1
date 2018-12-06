@@ -19,6 +19,7 @@ void showImage(string name,Mat img, bool print=0, string path=""){
     cv::resizeWindow(name, 800,800);
     if(print == 1){
         path.append(name);
+        path.append(".png");
         imwrite(path, img);
     }
 
@@ -129,9 +130,10 @@ bool intersection(Vec2f line1,Vec2f line2, Vec2i &dstVector){
 }
 
 int main(int argc, char** argv) {
-    Mat img1 = cv::imread("/home/kasper/RWworkspace/markerImages/sequence_2a/marker_thinline_07.png", CV_LOAD_IMAGE_GRAYSCALE);
-    Mat img = cv::imread("/home/kasper/RWworkspace/markerImages/sequence_2a/marker_thinline_07.png");
-    showImage("imageTest", img1);
+    String imagePath = "/home/kasper/RWworkspace/markerImages/sequence_2a_h/marker_thinline_hard_03.png";
+    Mat img1 = cv::imread(imagePath, CV_LOAD_IMAGE_GRAYSCALE);
+    Mat img = cv::imread(imagePath);
+    showImage("ImgGrey", img1);
     //Average filter
     Mat kernel = Mat::ones(5,5,CV_8U);
     blur(img1,img1,kernel.size());
@@ -139,7 +141,7 @@ int main(int argc, char** argv) {
     //create edges
     Mat edges;
     Canny(img1,edges,100,180);
-    showImage("edges", edges);
+    showImage("cannyEdges", edges);
 
     //Hough transform on the edges
     vector<Vec2f> houghEdges;
@@ -224,8 +226,38 @@ int main(int argc, char** argv) {
         if(!containedInThresh(neighbourCoor[i],uniqueIntersections,15)){ //threshold to where there must not be more than one point
             uniqueIntersections.push_back(neighbourCoor[i]);
         }
+    }
+
+    //Averages points within a threshold
+    vector<Vec2i> averageIntersection;
+    Vec2i averageSum = Vec2i(2);
+    int numberOfPoints = 0;
+
+    for(size_t i = 0; i< neighbourCoor.size(); i++){
+        averageSum[0] = neighbourCoor[i][0];
+        averageSum[1] = neighbourCoor[i][1];
+        numberOfPoints++;
+        for(size_t j = 0; j < neighbourCoor.size(); j++){
+            if(neighbourCoor[i][0] < neighbourCoor[j][0] + 15  && neighbourCoor[i][0] > neighbourCoor[j][0] - 15){
+                if(neighbourCoor[i][1] < neighbourCoor[j][1] + 15  && neighbourCoor[i][1] > neighbourCoor[j][1] - 15){
+                    averageSum[0] += neighbourCoor[j][0];
+                    averageSum[1] += neighbourCoor[j][1];
+                    numberOfPoints++;
+                }
+            }
+        }
+        averageSum[0] = cvRound(averageSum[0]/numberOfPoints);
+        averageSum[1] = cvRound(averageSum[1]/numberOfPoints);
+        numberOfPoints = 0;
+
+        if(!containedInThresh(averageSum,averageIntersection,15)){
+            averageIntersection.push_back(averageSum);
+
+            cout << "X "<< averageSum[0] << " " << averageSum[1] << endl;
+        }
 
     }
+
 
     //---------------------------------------TBDEND----------------------------------//
 
@@ -240,6 +272,8 @@ int main(int argc, char** argv) {
 
     //Draw all the unique intersections
     drawCircles(uniqueIntersections,perpImg,Scalar(0,0,255));
+    //Draw all the unique intersections
+    drawCircles(averageIntersection,perpImg,Scalar(0,255,0));
 
     double averageX = 0.0;
     double averageY = 0.0;
@@ -260,10 +294,11 @@ int main(int argc, char** argv) {
     cout << "intersections: " << intersectionVec.size() << endl;
     cout << "voteVector Length: " << voteVector.size() << endl;
     cout << "neighbouring threshold intersections: " << neighbourCoor.size() << endl;
+    cout << "average Test: " << averageIntersection.size() << endl;
 
 
-    imshow("houghEdges", houghImg);
-    imshow("uniquePerpEdges", perpImg);
+    showImage("houghEdges", houghImg);
+    showImage("uniquePerpEdges", perpImg);
 
 
 
