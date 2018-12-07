@@ -6,7 +6,8 @@
 #include <cv.h>
 #include <math.h>
 #include <cmath>
-
+#include <string>
+#include <iostream>
 
 using namespace cv;
 using namespace std;
@@ -21,28 +22,25 @@ void showImage(string name,Mat img, bool print=0, string path=""){
         path.append(name);
         path.append(".png");
         imwrite(path, img);
+        //cout << "writing to path: " << path << endl;
     }
-
 }
 
-Mat getMask(Mat img, Vec3b hsvPixel, int hThreshold, int sThreshold, int vThreshold){
-    Mat hsvImg, mask;
-    cvtColor(img,hsvImg, COLOR_BGR2HSV);
-    //Vec3b hsvPixel(hsvImg.at<Vec3b>(x,y));
-
-    Scalar minimumHSV = Scalar(hsvPixel.val[0] - hThreshold, hsvPixel.val[1] - sThreshold, hsvPixel.val[2] - vThreshold);
-    Scalar maxHSV = Scalar(hsvPixel.val[0] + hThreshold, hsvPixel.val[1] + sThreshold, hsvPixel.val[2] + vThreshold);
+Mat getMask(Mat img,Scalar minimumHSV, Scalar maxHSV){
+    Mat mask;
 
     //create a mask using the thresholded range
-    inRange(hsvImg, minimumHSV, maxHSV,mask);
+    inRange(img, minimumHSV, maxHSV,mask);
     return mask;
 }
 
-
-int main(int argc, char** argv) {
-    Mat img1 = cv::imread("/home/kasper/qtworkspace/markerImages/sequence_1/marker_color_01.png", CV_LOAD_IMAGE_COLOR);
+void seq1Algo(Mat img1, string pathToWrite = ""){
+    bool print = 1;
+    if(pathToWrite.empty()){
+        print = 0;
+    }
+    //Mat img1 = cv::imread("/home/kasper/qtworkspace/markerImages/sequence_1/marker_color_01.png", CV_LOAD_IMAGE_COLOR);
     showImage("imageTest", img1);
-
 
     Mat hsvImg;
     Mat colorSeg;
@@ -50,14 +48,34 @@ int main(int argc, char** argv) {
     //convert to HSV
     cvtColor(img1,hsvImg, COLOR_BGR2HSV);
 
+    //Pixelvalues
     Vec3b orangePixel(39,250,192); //HSV pixel values, from samples in the image
     Vec3b bluePixel(77,162,157);
 
-    Mat orange = getMask(hsvImg, orangePixel, 10,10,10); //ORANGE
-    Mat blue = getMask(hsvImg,bluePixel,25,40,20);   //BLUE
+    //Thresholds used for Easy marker
+    /*
+    Vec3b hsvOrangeMaxThresh(10,10,10);
+    Vec3b hsvOrangeMinThresh(10,10,10);
+
+    Vec3b hsvBlueMaxThresh(60,35,20);
+    Vec3b hsvBlueMinThresh(20,50,80);
+    */
+
+
+
+    //Thresholds used for Hard marker
+    Vec3b hsvOrangeMaxThresh(10,20,20);
+    Vec3b hsvOrangeMinThresh(10,10,10);
+
+    Vec3b hsvBlueMaxThresh(70,35,20);
+    Vec3b hsvBlueMinThresh(30,50,80);
+
+
+    Mat orange = getMask(hsvImg,cv::Scalar(0, 90, 90), cv::Scalar(14, 255, 255)); //ORANGE
+    Mat blue = getMask(hsvImg,  cv::Scalar(100, 70, 30), cv::Scalar(130, 255, 200));   //BLUE
 
     bitwise_or(orange,blue,colorSeg);
-    showImage("gt mask", blue);
+    showImage("gt mask", colorSeg);
 
 
     //morphoogical operations to enhance quality of GT
@@ -86,7 +104,7 @@ int main(int argc, char** argv) {
     vector<Vec2i> coordinates;
     vector<vector<Point>> contoursThresh;
     //filter the contours based on compactness:
-    double perimiterLowThreshold = 200;
+    double perimiterLowThreshold = 150;
     double perimiterHighThreshold = 400;
 
     for(int i = 0; i < contours.size(); i++){
@@ -94,37 +112,58 @@ int main(int argc, char** argv) {
         if(contours[i].size() > perimiterLowThreshold && perimiterHighThreshold > contours[i].size()){
             contoursThresh.push_back(contours[i]);
         }
-        cout << "contour: " << i << "| Pixels in contour: " <<contours[i].size() <<  endl;
+        //cout << "contour: " << i << "| Pixels in contour: " <<contours[i].size() <<  endl;
     }
 
+
+    //Calc compactness
+    RotatedRect rRect;
+    double radius= 0;
+    double compactness = 0;
+    double area = 0;
 
     //Find center of the contours
-
     double averageX = 0;
     double averageY = 0;
+    Vec2i centerVec;
+    Point2f  center;
     for(int i = 0; i < contoursThresh.size(); i++){
-        circleMoment = moments((contoursThresh[i]));
-        comX = circleMoment.m10/circleMoment.m00;
-        comY = circleMoment.m01/circleMoment.m00;
+        //calc compactness
+        area = contourArea(contoursThresh[i]);
+        compactness = ((4*CV_PI)*area)/pow(arcLength(contoursThresh[i],true),2);
+        //cout << compactness << endl;
+        if(compactness > 0.8){
+            circleMoment = moments((contoursThresh[i]));
+            comX = circleMoment.m10/circleMoment.m00;
+            comY = circleMoment.m01/circleMoment.m00;
+            coordinates.push_back(centerVec);
 
-        coordinates.push_back(Vec2i(comX,comY));
-
-        //calculates the center of the marker
-        averageX += comX/contoursThresh.size();
-        averageY += comY/contoursThresh.size();
-
-        //draws circles, center of circles
-        drawContours(img1, contoursThresh,i, 255,2,8);
-        circle(img1, Point(comX,comY), 2, 0, 2);
+            //draws circles, center of circles
+            drawContours(img1, contoursThresh,i, 255,2,8);
+            circle(img1, Point(comX,comY), 2, 0, 2);
+        }
     }
 
-    //Draws point in the middle of the marker
-    circle(img1, Point(cvRound(averageX),cvRound(averageY)), 2, Scalar(0,0,255), 2);
-
-    showImage("drawing", img1);
+    showImage("drawing", img1,print, pathToWrite);
+}
 
 
-    while (cv::waitKey() != 27); // (d½o nothing)
+int main(int argc, char** argv) {
+    //From: https://stackoverflow.com/questions/31346132/how-to-get-all-images-in-folder-using-c
+    vector<cv::String> fn;
+    glob("/home/kasper/qtworkspace/markerImages/sequence_1_h/*.png", fn, false);
+    vector<Mat> images;
+    size_t count = fn.size(); //number of png files in images folder
+    string pathToWrite;
+    for (size_t i=0; i<count; i++){
+        pathToWrite = "/home/kasper/RWworkspace/markerImages/Results/sequence_1_h/";
+        pathToWrite.append(to_string(i));
+        //if(i == 23)
+            seq1Algo(imread(fn[i]),pathToWrite);
+    }
+
+    while (cv::waitKey() != 27); // (do nothing)
+
 
     return 0;
 }

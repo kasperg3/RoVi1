@@ -24,7 +24,6 @@ void showImage(string name,Mat img, bool print=0, string path=""){
     }
 
 }
-
 bool containedIn( Vec2f coordinate ,vector<Vec2f> vec){
     for(size_t i = 0 ; i < vec.size(); i++){
         if(vec[i][0] == coordinate[0] && vec[i][1] == coordinate[1]){
@@ -129,13 +128,14 @@ bool intersection(Vec2f line1,Vec2f line2, Vec2i &dstVector){
 
 }
 
-int main(int argc, char** argv) {
-    String imagePath = "/home/kasper/RWworkspace/markerImages/sequence_2a_h/marker_thinline_hard_03.png";
+
+void seq2Algo(string imagePath, string pathToWrite){
     Mat img1 = cv::imread(imagePath, CV_LOAD_IMAGE_GRAYSCALE);
     Mat img = cv::imread(imagePath);
+    Mat origImg = cv::imread(imagePath,CV_LOAD_IMAGE_GRAYSCALE);
     showImage("ImgGrey", img1);
     //Average filter
-    Mat kernel = Mat::ones(5,5,CV_8U);
+    Mat kernel = Mat::ones(1,1,CV_8U);
     blur(img1,img1,kernel.size());
 
     //create edges
@@ -251,9 +251,9 @@ int main(int argc, char** argv) {
         numberOfPoints = 0;
 
         if(!containedInThresh(averageSum,averageIntersection,15)){
-            averageIntersection.push_back(averageSum);
-
-            cout << "X "<< averageSum[0] << " " << averageSum[1] << endl;
+            //if the intersection is not on a black pixel
+            if(origImg.at<uchar>(averageSum[0],averageSum[1]) < 50)
+                averageIntersection.push_back(averageSum);
         }
 
     }
@@ -262,29 +262,18 @@ int main(int argc, char** argv) {
     //---------------------------------------TBDEND----------------------------------//
 
     //Draws hough lines onto img
-    drawHoughLines(houghEdges,houghImg);
+    //drawHoughLines(houghEdges,houghImg);
 
     //Draw perpendicular lines extracted onto perpImg
-    drawHoughLines(uniquePerpEdges,perpImg);
+    //drawHoughLines(uniquePerpEdges,perpImg);
 
     //Draw the coordinates from the intersections onto perpImg
-    drawCircles(neighbourCoor,perpImg,Scalar(0,0,0));
+    //drawCircles(neighbourCoor,perpImg,Scalar(0,0,0));
 
     //Draw all the unique intersections
-    drawCircles(uniqueIntersections,perpImg,Scalar(0,0,255));
+    //drawCircles(uniqueIntersections,perpImg,Scalar(0,0,255));
     //Draw all the unique intersections
     drawCircles(averageIntersection,perpImg,Scalar(0,255,0));
-
-    double averageX = 0.0;
-    double averageY = 0.0;
-    //Draws the center of marker
-    for(size_t i = 0; i < uniqueIntersections.size(); i++){
-        averageX += uniqueIntersections[i][1]/uniqueIntersections.size();
-        averageY += uniqueIntersections[i][0]/uniqueIntersections.size();
-    }
-
-    circle(perpImg, Point(cvRound(averageX),cvRound(averageY)), 2, Scalar(0,0,255), 2);
-
 
     //
     cout << "img size: " << houghImg.size() << endl ;
@@ -298,10 +287,27 @@ int main(int argc, char** argv) {
 
 
     showImage("houghEdges", houghImg);
-    showImage("uniquePerpEdges", perpImg);
 
+    if(!pathToWrite.empty())
+        showImage("uniquePerpEdges", perpImg,1,pathToWrite);
+    else
+        showImage("uniquePerpEdges", perpImg);
 
+}
 
+int main(int argc, char** argv) {
+    //From: https://stackoverflow.com/questions/31346132/how-to-get-all-images-in-folder-using-c
+    vector<cv::String> fn;
+    glob("/home/kasper/qtworkspace/markerImages/sequence_2a_h/*.png", fn, false);
+    vector<Mat> images;
+    size_t count = fn.size(); //number of png files in images folder
+    string pathToWrite;
+    for (size_t i=0; i<count; i++){
+        pathToWrite = "/home/kasper/RWworkspace/markerImages/Results/sequence_2a_h/";
+        pathToWrite.append(to_string(i));
+        //if(i == 4)
+            seq2Algo(fn[i],pathToWrite);
+    }
     while (cv::waitKey() != 27); // (d½o nothing)
 
     return 0;
